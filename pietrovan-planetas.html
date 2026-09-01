@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Pietrovan e os Planetas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@400;700;800&display=swap" />
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: #0E1330; color: #F5F3FF; font-family: 'Nunito', sans-serif;
+    overflow: hidden; overscroll-behavior: none; touch-action: none;
+    position: fixed; inset: 0;
+  }
+  #root { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ---- MENU ---- */
+  #menu { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+  #menu h1 { font-family: 'Fredoka', sans-serif; color: #FFB648; font-size: clamp(22px, 5vw, 34px); margin: 0 0 4px 0; text-align: center; }
+  #menu p.sub { color: #B7BEE8; font-size: 14px; margin: 0 0 22px 0; text-align: center; }
+  #planetGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; width: 100%; max-width: 720px; }
+  .planetCard {
+    border: none; border-radius: 16px; padding: 16px 10px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    color: #F5F3FF; font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 13px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.35); position: relative;
+  }
+  .planetCard .num { position: absolute; top: 8px; left: 10px; font-size: 11px; opacity: 0.7; }
+  .planetCard .dot { width: 46px; height: 46px; border-radius: 50%; }
+  .planetCard .done { position: absolute; top: 8px; right: 10px; font-size: 14px; }
+  .planetCard.locked { opacity: 0.4; filter: grayscale(0.6); cursor: not-allowed; }
+  .planetCard .lock { font-size: 20px; }
+
+  #levelIntro {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 8; opacity: 0; transition: opacity 0.4s ease;
+  }
+  #levelIntro.show { opacity: 1; }
+  #levelIntro .txt {
+    font-family: 'Fredoka', sans-serif; font-size: clamp(26px, 7vw, 44px); color: #FFB648;
+    text-shadow: 0 4px 14px rgba(0,0,0,0.65); text-align: center; padding: 0 20px;
+  }
+
+  /* ---- PLANET INTRO (imagem + curiosidades narradas) ---- */
+  #planetIntro {
+    display: none; position: fixed; inset: 0; flex-direction: column; align-items: center;
+    justify-content: flex-start; padding: 26px 20px 20px 20px; overflow-y: auto; z-index: 20;
+  }
+  #introSvgWrap { width: min(220px, 55vw); margin-bottom: 12px; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.4)); }
+  #introSvgWrap svg { width: 100%; height: auto; display: block; }
+  #introName { font-family: 'Fredoka', sans-serif; font-size: clamp(22px, 6vw, 30px); margin: 0 0 16px 0; text-align: center; }
+  #introFacts { max-width: 420px; width: 100%; margin-bottom: 20px; }
+  .factLine {
+    background: rgba(14,19,48,0.35); border-radius: 12px; padding: 10px 14px; margin: 0 0 10px 0;
+    font-size: 14px; font-weight: 700; color: #E8E6FF; transition: all 0.25s ease; opacity: 0.6;
+  }
+  .factLine.active { background: rgba(255,255,255,0.92); color: #171B3D; opacity: 1; transform: scale(1.03); }
+
+  /* ---- GAME ---- */
+  #game { position: fixed; inset: 0; display: none; flex-direction: column; }
+  #gameCanvasWrap { flex: 1; position: relative; overflow: hidden; }
+  #gameSvg { width: 100%; height: 100%; display: block; }
+  #hud {
+    position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between;
+    align-items: center; padding: 10px 14px; pointer-events: none; z-index: 5;
+  }
+  #hud .left, #hud .right { display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+  .hudBtn {
+    border: none; background: rgba(14,19,48,0.75); color: #F5F3FF; border-radius: 10px;
+    width: 34px; height: 34px; font-size: 15px; cursor: pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .hudChip { background: rgba(14,19,48,0.6); border-radius: 10px; padding: 5px 10px; font-size: 13px; font-weight: 800; }
+  #factBubble {
+    position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); max-width: 84%;
+    background: #F5F3FF; color: #171B3D; border-radius: 12px; padding: 10px 14px; font-size: 13px;
+    font-weight: 700; box-shadow: 0 6px 16px rgba(0,0,0,0.4); display: none; z-index: 5; text-align:center;
+  }
+  #overlay {
+    position: absolute; inset: 0; background: rgba(14,19,48,0.93); display: none; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 24px; z-index: 10;
+  }
+  #overlay h2 { font-family: 'Fredoka', sans-serif; margin: 6px 0; font-size: 26px; }
+  #overlay p { color: #B7BEE8; font-size: 14px; margin: 0 0 18px 0; max-width: 340px; }
+  .bigBtn {
+    padding: 12px 22px; border-radius: 12px; border: none; font-family: 'Fredoka', sans-serif;
+    font-weight: 700; font-size: 15px; cursor: pointer; margin: 5px;
+  }
+  .primaryBtn { background: linear-gradient(90deg, #FFB648, #FF6FA5); color: #0E1330; }
+  .secondaryBtn { background: rgba(255,255,255,0.12); color: #F5F3FF; }
+
+  #controls { position: relative; height: 108px; flex-shrink: 0; padding: 0 14px 14px 14px; }
+  .ctrlBtn {
+    position: absolute; border: none; background: rgba(23,27,61,0.85); color: #F5F3FF;
+    display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none;
+    border-radius: 16px;
+  }
+  .shootBtn { background: rgba(255,182,72,0.28); }
+  .jumpBtn { background: linear-gradient(135deg, #FFB648, #FF6FA5); color: #0E1330; font-weight: 800; }
+</style>
+</head>
+<body>
+
+<div id="root">
+
+  <div id="menu">
+    <h1>🚀 Pietrovan e os Planetas</h1>
+    <p class="sub">Escolha um planeta pra explorar</p>
+    <div id="planetGrid"></div>
+  </div>
+
+  <div id="planetIntro">
+    <div id="introSvgWrap"></div>
+    <h2 id="introName"></h2>
+    <div id="introFacts"></div>
+    <button class="bigBtn primaryBtn" id="introSkip">Jogar agora ▶</button>
+  </div>
+
+  <div id="game">
+    <div id="gameCanvasWrap">
+      <svg id="gameSvg" xmlns="http://www.w3.org/2000/svg">
+        <g id="staticLayer"></g>
+        <g id="dynamicLayer"></g>
+      </svg>
+      <div id="hud">
+        <div class="left">
+          <button class="hudBtn" id="menuBtn">☰</button>
+          <span class="hudChip" id="titleChip">Mercúrio</span>
+        </div>
+        <div class="right">
+          <button class="hudBtn" id="fsBtn">⛶</button>
+          <button class="hudBtn" id="audioBtn">🔇</button>
+          <span class="hudChip" id="crystalChip">💎 0/0</span>
+          <span class="hudChip" id="livesChip">❤️❤️❤️</span>
+        </div>
+      </div>
+      <div id="factBubble"></div>
+      <div id="levelIntro"><div class="txt" id="levelIntroTxt"></div></div>
+      <div id="overlay">
+        <div id="overlayIcon" style="font-size:38px;">🚀</div>
+        <h2 id="overlayTitle">Fase completa!</h2>
+        <p id="overlayText">Você aprendeu tudo!</p>
+        <div>
+          <button class="bigBtn primaryBtn" id="overlayPrimary">Continuar</button>
+          <button class="bigBtn secondaryBtn" id="overlaySecondary">Escolher planeta</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="controls">
+      <button class="ctrlBtn" id="btnLeft" style="left:14px; top:26px; width:54px; height:54px; font-size:22px;">◀</button>
+      <button class="ctrlBtn" id="btnRight" style="left:76px; top:26px; width:54px; height:54px; font-size:22px;">▶</button>
+      <button class="ctrlBtn shootBtn" id="btnShoot" style="right:98px; top:26px; width:54px; height:54px; font-size:20px;">🔫</button>
+      <button class="ctrlBtn jumpBtn" id="btnJump" style="right:14px; top:14px; width:72px; height:72px; font-size:13px;">PULAR</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ CONFIG ============ */
+  const GROUND_Y = 208;
+  const VIEW_H = 260;
+  let VIEW_W = 380;
+  const SPEED = 3.4;
+  const GRAVITY = 0.55;
+  const JUMP_V = -10.8;
+  const LIVES_START = 3;
+  const INVULN_MS = 1300;
+  const GIANT_HP = 3;
+  const DRAGON_HP = 4;
+  const PROJECTILE_SPEED = 9;
+  const SHOOT_COOLDOWN_MS = 320;
+  const GIANT_SCALE = 2.6;
+
+  const PLANETS = [
+    {
+      id: "mercurio", name: "Mercúrio", num: 1,
+      skyTop: "#1B1440", skyMid: "#3A2E2E", skyBot: "#6B5A52",
+      ground: "#4A3C38", crater: "#3A2E2E", sun: "#FFE8B0", accent: "#FFB648",
+      giant: { primary: "#FF5C7A", secondary: "#D93A5C", dark: "#3A0E1E", spike: "#FFE38A" },
+      dragon: { body: "#7A3EFF", dark: "#5A26C9", darker: "#2A1359", wingBack: "#9B6BFF", wingFront: "#B48CFF", glow: "#FFE38A" },
+      facts: [
+        "Mercúrio é o planeta mais próximo do Sol e o menor de todos!",
+        "Um dia em Mercúrio dura quase 59 dias terrestres — bem devagar!",
+        "De dia chega a 430°C e de noite cai pra -180°C. Que diferença!",
+      ],
+      signFacts: [
+        "Mercúrio não tem luas nem anéis, é bem sozinho no espaço.",
+        "A superfície de Mercúrio é cheia de crateras, parecida com a da Lua.",
+        "Você pesaria bem menos em Mercúrio do que aqui na Terra!",
+      ],
+    },
+    {
+      id: "venus", name: "Vênus", num: 2,
+      skyTop: "#3A2A0E", skyMid: "#8A5A1E", skyBot: "#D9A63C",
+      ground: "#7A5A2A", crater: "#5A3E1A", sun: "#FFD98A", accent: "#FFC15C",
+      giant: { primary: "#C9D93A", secondary: "#8A9E1E", dark: "#2E3A0E", spike: "#FFF3A0" },
+      dragon: { body: "#E8C15A", dark: "#B08A2E", darker: "#4A3410", wingBack: "#F0D888", wingFront: "#FFE9B0", glow: "#FFF3C4" },
+      facts: [
+        "Vênus é o planeta mais quente do Sistema Solar, mais que Mercúrio!",
+        "Em Vênus, um dia é mais longo que um ano — ele gira bem devagarinho.",
+        "As nuvens de Vênus têm ácido sulfúrico, seria impossível respirar lá.",
+      ],
+      signFacts: [
+        "Vênus gira ao contrário dos outros planetas, de trás pra frente!",
+        "A pressão do ar em Vênus é tão forte que esmagaria uma nave comum.",
+        "Vênus é o segundo planeta mais próximo do Sol e brilha bastante no céu.",
+      ],
+    },
+    {
+      id: "terra", name: "Terra", num: 3,
+      skyTop: "#1B3A6B", skyMid: "#4A8FD9", skyBot: "#8FD9C4",
+      ground: "#3E7A3A", crater: "#2E5A2A", sun: "#FFF3B0", accent: "#5FA8FF",
+      giant: { primary: "#3EA85A", secondary: "#2A7A3E", dark: "#123018", spike: "#8FD9C4" },
+      dragon: { body: "#2E8FD9", dark: "#1E5FA8", darker: "#0E2A4A", wingBack: "#5CC9E8", wingFront: "#7CFFB2", glow: "#C4FFE0" },
+      facts: [
+        "A Terra é o único planeta que conhecemos com vida!",
+        "Setenta por cento da superfície da Terra é coberta de água.",
+        "A Terra leva 365 dias pra dar uma volta completa ao redor do Sol.",
+      ],
+      signFacts: [
+        "A Terra tem uma lua só, que ajuda a controlar as marés dos oceanos.",
+        "A atmosfera da Terra é feita principalmente de nitrogênio e oxigênio.",
+        "A Terra gira em torno do próprio eixo em 24 horas, formando o dia e a noite.",
+      ],
+    },
+    {
+      id: "marte", name: "Marte", num: 4,
+      skyTop: "#3A1410", skyMid: "#8A3A22", skyBot: "#D9744A",
+      ground: "#8A4A2A", crater: "#5A2E18", sun: "#FFB870", accent: "#FF7A4A",
+      giant: { primary: "#D9744A", secondary: "#8A3A22", dark: "#3A1410", spike: "#FFD9A0" },
+      dragon: { body: "#C9502E", dark: "#8A2E18", darker: "#3A1410", wingBack: "#E88A4A", wingFront: "#FFB870", glow: "#FFE0B0" },
+      facts: [
+        "Marte é conhecido como planeta vermelho por causa do ferro no solo.",
+        "Marte tem o maior vulcão do Sistema Solar, o Monte Olimpo!",
+        "Um dia em Marte dura quase o mesmo tempo que um dia na Terra.",
+      ],
+      signFacts: [
+        "Marte tem duas luas pequenas, chamadas Fobos e Deimos.",
+        "Já foram enviados vários robôs pra explorar a superfície de Marte.",
+        "Marte tem estações do ano, parecido com a Terra, só que mais longas.",
+      ],
+    },
+    {
+      id: "jupiter", name: "Júpiter", num: 5,
+      skyTop: "#4A2E14", skyMid: "#A9702E", skyBot: "#D9B078",
+      ground: "#8A6440", crater: "#5A3E22", sun: "#FFE0A0", accent: "#E8A24C",
+      giant: { primary: "#E8A24C", secondary: "#A9702E", dark: "#3A2410", spike: "#FFF3D0" },
+      dragon: { body: "#D97A2E", dark: "#8A4E1A", darker: "#3A2410", wingBack: "#F0B058", wingFront: "#FFD9A0", glow: "#FFF3D0" },
+      facts: [
+        "Júpiter é o maior planeta do Sistema Solar, gigante mesmo!",
+        "A Grande Mancha Vermelha de Júpiter é uma tempestade gigante.",
+        "Júpiter tem mais de noventa luas conhecidas até hoje!",
+      ],
+      signFacts: [
+        "Júpiter é um planeta gasoso, não tem uma superfície sólida pra pisar.",
+        "Júpiter gira tão rápido que um dia lá dura menos de 10 horas.",
+        "A força de gravidade de Júpiter é a maior entre todos os planetas.",
+      ],
+    },
+    {
+      id: "saturno", name: "Saturno", num: 6,
+      skyTop: "#3A2E0E", skyMid: "#B0902E", skyBot: "#E8CE8A",
+      ground: "#9A7A3E", crater: "#6A5024", sun: "#FFEFC0", accent: "#F0C864",
+      giant: { primary: "#F0C864", secondary: "#B0902E", dark: "#3A2E0E", spike: "#FFF3C4" },
+      dragon: { body: "#E8CE8A", dark: "#B0902E", darker: "#4A3E14", wingBack: "#F5E0A8", wingFront: "#FFF3C4", glow: "#FFFBE0" },
+      facts: [
+        "Saturno é famoso pelos anéis brilhantes feitos de gelo e rocha.",
+        "Saturno é tão leve que quase flutuaria numa banheira gigante!",
+        "Um ano em Saturno dura quase vinte e nove anos terrestres.",
+      ],
+      signFacts: [
+        "Os anéis de Saturno são formados por pedaços de gelo e poeira.",
+        "Saturno também é um planeta gasoso, bem parecido com Júpiter.",
+        "Saturno tem dezenas de luas, e a maior se chama Titã.",
+      ],
+    },
+    {
+      id: "urano", name: "Urano", num: 7,
+      skyTop: "#0E2E3A", skyMid: "#2E7A8A", skyBot: "#8ADBD9",
+      ground: "#3E8A8A", crater: "#2A5A5A", sun: "#C0FFF5", accent: "#4CD9C0",
+      giant: { primary: "#4CD9C0", secondary: "#2E7A8A", dark: "#0E2E3A", spike: "#C0FFF5" },
+      dragon: { body: "#2E9AA8", dark: "#0E2E3A", darker: "#081A22", wingBack: "#6CE0D9", wingFront: "#C0FFF5", glow: "#E0FFFB" },
+      facts: [
+        "Urano gira quase deitado de lado, diferente dos outros planetas.",
+        "Urano é azul-esverdeado por causa do gás metano na atmosfera.",
+        "Em Urano, cada polo passa 42 anos seguidos sem ver a luz do Sol.",
+      ],
+      signFacts: [
+        "Urano também tem anéis, só que bem mais fracos que os de Saturno.",
+        "Urano foi o primeiro planeta descoberto usando um telescópio.",
+        "A atmosfera de Urano é uma das mais frias do Sistema Solar.",
+      ],
+    },
+    {
+      id: "netuno", name: "Netuno", num: 8,
+      skyTop: "#0A1440", skyMid: "#1E3A8A", skyBot: "#4A6FD9",
+      ground: "#2A3E7A", crater: "#1A2A5A", sun: "#B0C8FF", accent: "#8C6FFF",
+      giant: { primary: "#4A6FD9", secondary: "#1E3A8A", dark: "#0A1440", spike: "#8C6FFF" },
+      dragon: { body: "#1E3A8A", dark: "#0A1440", darker: "#050A28", wingBack: "#5A4ED9", wingFront: "#8C6FFF", glow: "#C4B8FF" },
+      facts: [
+        "Netuno é o planeta mais distante do Sol no Sistema Solar.",
+        "Os ventos de Netuno são os mais fortes, passam de 2000 km/h!",
+        "Netuno leva 165 anos terrestres pra completar uma volta no Sol.",
+      ],
+      signFacts: [
+        "Netuno foi descoberto por cálculos matemáticos antes de ser visto.",
+        "Netuno tem uma lua chamada Tritão que orbita ao contrário.",
+        "Netuno é tão distante que a luz do Sol demora horas pra chegar lá.",
+      ],
+    },
+  ];
+
+  const SUIT = "#5FA8FF";
+  const SKIN = "#FFDCB5";
+  const UNLOCK_KEY = "pietrovan_unlocked";
+
+  function getUnlockedCount() {
+    try { return parseInt(localStorage.getItem(UNLOCK_KEY) || "1", 10); } catch (e) { return 1; }
+  }
+  function setUnlockedCount(n) {
+    try { localStorage.setItem(UNLOCK_KEY, String(n)); } catch (e) {}
+  }
+  function unlockNext(planetIndex) {
+    const unlocked = getUnlockedCount();
+    if (planetIndex + 2 > unlocked) setUnlockedCount(planetIndex + 2);
+  }
+
+  function announceLevel(planet) {
+    const el = document.getElementById("levelIntro");
+    document.getElementById("levelIntroTxt").textContent = `Fase ${planet.num} · ${planet.name}`;
+    el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 1700);
+  }
+
+  function selectPlanet(index) {
+    const p = PLANETS[index];
+    document.getElementById("menu").style.display = "none";
+    const introEl = document.getElementById("planetIntro");
+    introEl.style.display = "flex";
+    introEl.style.background = `linear-gradient(160deg, ${p.skyMid}, ${p.skyTop})`;
+    document.getElementById("introSvgWrap").innerHTML = planetIllustration(p);
+    document.getElementById("introName").textContent = `${p.num}. ${p.name}`;
+    document.getElementById("introFacts").innerHTML = p.facts
+      .map((f, i) => `<p class="factLine" id="factLine${i}">${f}</p>`)
+      .join("");
+
+    if (!audioOn) {
+      initAudio();
+      audioOn = true;
+      document.getElementById("audioBtn").textContent = "🔊";
+    }
+
+    let cancelled = false;
+    const goPlay = () => {
+      if (cancelled) return;
+      cancelled = true;
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      introEl.style.display = "none";
+      startLevel(index);
+    };
+    document.getElementById("introSkip").onclick = goPlay;
+
+    const queue = [`Planeta ${p.num}. ${p.name}.`, ...p.facts];
+    let qi = -1;
+    function speakNext() {
+      if (cancelled) return;
+      qi++;
+      document.querySelectorAll(".factLine").forEach((el) => el.classList.remove("active"));
+      if (qi >= 1 && qi - 1 < p.facts.length) {
+        const el = document.getElementById("factLine" + (qi - 1));
+        if (el) el.classList.add("active");
+      }
+      if (qi >= queue.length) { setTimeout(goPlay, 500); return; }
+      if (audioOn && window.speechSynthesis) {
+        const u = new SpeechSynthesisUtterance(queue[qi]);
+        u.lang = "pt-BR"; u.rate = 0.95; u.pitch = 1.05;
+        u.onend = speakNext;
+        u.onerror = speakNext;
+        window.speechSynthesis.speak(u);
+      } else {
+        setTimeout(speakNext, 1900);
+      }
+    }
+    speakNext();
+  }
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function buildLevelLayout(planetIndex) {
+    const worldW = 3200 + planetIndex * 260;
+    const collectibles = [];
+    let n = 0;
+    for (let xp = 220; xp < worldW - 200; xp += 330) {
+      n++;
+      collectibles.push({ id: "c" + n, x: xp, y: n % 2 === 0 ? GROUND_Y - 72 : GROUND_Y - 6, got: false });
+    }
+    const facts = PLANETS[planetIndex].signFacts;
+    const signs = [];
+    const signGap = Math.floor(worldW / (facts.length + 1));
+    for (let i = 0; i < facts.length; i++) {
+      signs.push({ id: "s" + i, x: signGap * (i + 1), fact: facts[i] });
+    }
+    const aliens = [];
+    let ai = 0;
+    for (let xp = 620; xp < worldW - 260; xp += 640) {
+      aliens.push({ id: "a" + ai, left: xp, right: xp + 170, x: xp, dir: 1, phase: 0 });
+      ai++;
+    }
+    return { worldW, collectibles, signs, aliens };
+  }
+
+  /* ============ SVG SPRITE BUILDERS (return markup strings) ============ */
+  function playerSvg(px, py, facingLeft, hit, legPhase, grounded) {
+    const frontLeg = grounded ? Math.sin(legPhase) * 11 : 5;
+    const backLeg = grounded ? -Math.sin(legPhase) * 11 : -7;
+    const armSwing = grounded ? -Math.sin(legPhase) * 9 : -14;
+    return `<g transform="translate(${px},${py}) scale(${facingLeft ? -1 : 1},1)" opacity="${hit ? 0.4 : 1}">
+      <ellipse cx="0" cy="2" rx="18" ry="5" fill="#000" opacity="0.28"/>
+      <line x1="-2" y1="-16" x2="${backLeg}" y2="0" stroke="#3A3F73" stroke-width="9" stroke-linecap="round"/>
+      <line x1="2" y1="-16" x2="${frontLeg}" y2="0" stroke="${SUIT}" stroke-width="9" stroke-linecap="round"/>
+      <rect x="-16" y="-46" width="11" height="22" rx="4" fill="#3A3F73"/>
+      <rect x="-14" y="-46" width="28" height="32" rx="11" fill="${SUIT}" stroke="#0E1330" stroke-width="2.5"/>
+      <rect x="-6" y="-40" width="8" height="18" rx="3" fill="#8FC4FF" opacity="0.5"/>
+      <line x1="0" y1="-34" x2="${armSwing}" y2="-14" stroke="#F5F3FF" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="${armSwing}" cy="-14" r="5" fill="#F5F3FF" stroke="#0E1330" stroke-width="1.5"/>
+      <circle cx="0" cy="-58" r="15" fill="${SKIN}" stroke="#0E1330" stroke-width="2.5"/>
+      <circle cx="4" cy="-60" r="2" fill="#0E1330"/>
+      <path d="M -2 -52 Q 4 -48 9 -52" stroke="#0E1330" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <ellipse cx="-6" cy="-64" rx="6" ry="3.5" fill="#FFF" opacity="0.35"/>
+      <line x1="0" y1="-73" x2="0" y2="-80" stroke="#B7BEE8" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="0" cy="-82" r="3.2" fill="#FFB648"/>
+    </g>`;
+  }
+
+  function alienSvg(x, phase) {
+    const legOff = Math.sin(phase) * 6;
+    return `<g transform="translate(${x},${GROUND_Y})">
+      <ellipse cx="0" cy="2" rx="14" ry="4" fill="#000" opacity="0.25"/>
+      <line x1="-3" y1="-8" x2="${-legOff}" y2="0" stroke="#2A8F5C" stroke-width="6" stroke-linecap="round"/>
+      <line x1="3" y1="-8" x2="${legOff}" y2="0" stroke="#2A8F5C" stroke-width="6" stroke-linecap="round"/>
+      <ellipse cx="0" cy="-18" rx="15" ry="12" fill="#7CFFB2" stroke="#0E1330" stroke-width="2"/>
+      <circle cx="-5" cy="-19" r="3" fill="#0E1330"/><circle cx="5" cy="-19" r="3" fill="#0E1330"/>
+      <circle cx="-6" cy="-20" r="1" fill="#FFF"/><circle cx="4" cy="-20" r="1" fill="#FFF"/>
+      <line x1="-6" y1="-29" x2="-9" y2="-35" stroke="#3BD98A" stroke-width="2" stroke-linecap="round"/>
+      <line x1="6" y1="-29" x2="9" y2="-35" stroke="#3BD98A" stroke-width="2" stroke-linecap="round"/>
+    </g>`;
+  }
+
+  function giantSvg(x, phase, hp, theme, planetId) {
+    const legOff = Math.sin(phase) * 10;
+    const pips = hpPipsSvg(x, GROUND_Y - 92, hp, GIANT_HP, theme.primary);
+    const ring = planetId === "saturno"
+      ? `<ellipse cx="0" cy="-22" rx="30" ry="7" fill="none" stroke="${theme.spike}" stroke-width="2.4" opacity="0.85" transform="rotate(-14)"/>`
+      : "";
+    return `<g transform="translate(${x},${GROUND_Y}) scale(${GIANT_SCALE})">
+      <ellipse cx="0" cy="3" rx="16" ry="5" fill="#000" opacity="0.3"/>
+      <line x1="-4" y1="-10" x2="${-legOff}" y2="0" stroke="${theme.secondary}" stroke-width="7" stroke-linecap="round"/>
+      <line x1="4" y1="-10" x2="${legOff}" y2="0" stroke="${theme.secondary}" stroke-width="7" stroke-linecap="round"/>
+      <path d="M ${-legOff * 0.5 - 4} -5 L ${-legOff * 0.5 - 8} -9 L ${-legOff * 0.5 - 2} -8 Z" fill="${theme.spike}"/>
+      <path d="M ${legOff * 0.5 + 4} -5 L ${legOff * 0.5 + 8} -9 L ${legOff * 0.5 + 2} -8 Z" fill="${theme.spike}"/>
+      ${planetId === "saturno" ? "" : ring}
+      <ellipse cx="0" cy="-22" rx="18" ry="15" fill="${theme.primary}" stroke="${theme.dark}" stroke-width="2.4"/>
+      <path d="M -18 -22 A 18 15 0 0 1 18 -22" fill="${theme.secondary}" stroke="${theme.dark}" stroke-width="2.4"/>
+      <path d="M -10 -34 L -13 -44 L -6 -37 Z" fill="${theme.secondary}" stroke="${theme.dark}" stroke-width="1.6"/>
+      <path d="M 10 -34 L 13 -44 L 6 -37 Z" fill="${theme.secondary}" stroke="${theme.dark}" stroke-width="1.6"/>
+      ${planetId === "saturno" ? ring : ""}
+      <circle cx="-6" cy="-23" r="4" fill="${theme.dark}"/><circle cx="6" cy="-23" r="4" fill="${theme.dark}"/>
+      <circle cx="-7.5" cy="-24.5" r="1.3" fill="${theme.spike}"/><circle cx="4.5" cy="-24.5" r="1.3" fill="${theme.spike}"/>
+      <path d="M -8 -13 Q 0 -8 8 -13" stroke="${theme.dark}" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <line x1="-16" y1="-16" x2="-24" y2="-4" stroke="${theme.secondary}" stroke-width="5" stroke-linecap="round"/>
+      <line x1="16" y1="-16" x2="24" y2="-4" stroke="${theme.secondary}" stroke-width="5" stroke-linecap="round"/>
+      <path d="M -19 -13 L -25 -14 L -20 -9 Z" fill="${theme.spike}"/><path d="M -22 -8 L -28 -8 L -23 -4 Z" fill="${theme.spike}"/>
+      <path d="M 19 -13 L 25 -14 L 20 -9 Z" fill="${theme.spike}"/><path d="M 22 -8 L 28 -8 L 23 -4 Z" fill="${theme.spike}"/>
+    </g>` + pips;
+  }
+
+  function dragonSvg(x, y, phase, facingLeft, hp, theme) {
+    const wing = Math.sin(phase * 4) * 30;
+    const pips = hpPipsSvg(x, y - 22, hp, DRAGON_HP, theme.wingFront);
+    return `<g transform="translate(${x},${y}) scale(${facingLeft ? -1 : 1},1)">
+      <ellipse cx="0" cy="0" rx="34" ry="13" fill="${theme.body}" stroke="${theme.darker}" stroke-width="2.5"/>
+      <path d="M -30 2 Q -48 10 -58 2 Q -46 -2 -30 -4 Z" fill="${theme.dark}" stroke="${theme.darker}" stroke-width="2"/>
+      <path d="M -6 -2 L -30 ${-16 - wing} L -14 -4 Z" fill="${theme.wingBack}" stroke="${theme.darker}" stroke-width="2" opacity="0.9"/>
+      <path d="M 6 -2 L 30 ${-16 - wing} L 14 -4 Z" fill="${theme.wingFront}" stroke="${theme.darker}" stroke-width="2"/>
+      <path d="M 24 -6 Q 40 -10 46 -2 Q 40 4 26 4 Z" fill="${theme.body}" stroke="${theme.darker}" stroke-width="2.5"/>
+      <path d="M 44 -6 L 50 -12 L 46 -4 Z" fill="${theme.dark}"/><path d="M 44 1 L 51 3 L 45 6 Z" fill="${theme.dark}"/>
+      <circle cx="42" cy="-3" r="2.2" fill="${theme.glow}"/>
+      <path d="M 30 8 L 34 16 L 26 12 Z" fill="${theme.dark}"/>
+    </g>` + pips;
+  }
+
+  function hpPipsSvg(cx, cy, hp, max, color) {
+    let s = "";
+    for (let i = 0; i < max; i++) {
+      const px = cx - ((max - 1) * 7) / 2 + i * 7;
+      s += `<circle cx="${px}" cy="${cy}" r="3" fill="${i < hp ? color : 'rgba(255,255,255,0.15)'}" stroke="#0E1330" stroke-width="0.8"/>`;
+    }
+    return `<g>${s}</g>`;
+  }
+
+  function meteorSvg(x, y, r, color) {
+    return `<g transform="translate(${x},${y})">
+      <circle r="${r}" fill="${color}" stroke="#00000055" stroke-width="2"/>
+      <circle cx="${-r * 0.3}" cy="${-r * 0.2}" r="${r * 0.28}" fill="#00000030"/>
+      <circle cx="${r * 0.35}" cy="${r * 0.25}" r="${r * 0.2}" fill="#00000030"/>
+    </g>`;
+  }
+
+  function boltSvg(x, y, dir) {
+    return `<g transform="translate(${x},${y})">
+      <ellipse cx="0" cy="0" rx="9" ry="3.4" fill="#FFE38A" opacity="0.9"/>
+      <ellipse cx="${-dir * 5}" cy="0" rx="4" ry="2" fill="#FFF" opacity="0.8"/>
+    </g>`;
+  }
+
+  function planetIllustration(p) {
+    const uid = "pc_" + p.id;
+    let details = "";
+    if (p.id === "mercurio") {
+      details = `<circle cx="70" cy="70" r="16" fill="#00000022"/><circle cx="140" cy="60" r="10" fill="#00000022"/>
+        <circle cx="150" cy="130" r="20" fill="#00000022"/><circle cx="80" cy="150" r="12" fill="#00000022"/>
+        <circle cx="115" cy="100" r="8" fill="#00000018"/>`;
+    } else if (p.id === "venus") {
+      details = `<path d="M20 70 Q110 50 200 80" stroke="#FFF3C4" stroke-width="14" fill="none" opacity="0.35"/>
+        <path d="M10 110 Q110 130 210 100" stroke="#FFE8A0" stroke-width="18" fill="none" opacity="0.4"/>
+        <path d="M30 150 Q110 170 190 140" stroke="#FFF3C4" stroke-width="10" fill="none" opacity="0.3"/>`;
+    } else if (p.id === "terra") {
+      details = `<ellipse cx="80" cy="80" rx="30" ry="20" fill="#3E7A3A" opacity="0.85"/>
+        <ellipse cx="150" cy="120" rx="24" ry="16" fill="#3E7A3A" opacity="0.85"/>
+        <ellipse cx="90" cy="150" rx="18" ry="12" fill="#2E5A2A" opacity="0.8"/>
+        <path d="M10 60 Q80 40 150 60 T210 70" stroke="#FFFFFF" stroke-width="16" fill="none" opacity="0.45"/>
+        <path d="M20 140 Q90 160 180 150" stroke="#FFFFFF" stroke-width="12" fill="none" opacity="0.4"/>`;
+    } else if (p.id === "marte") {
+      details = `<path d="M40 100 Q110 90 190 105" stroke="#5A2E18" stroke-width="8" fill="none" opacity="0.5"/>
+        <ellipse cx="110" cy="28" rx="34" ry="14" fill="#FFF3E8" opacity="0.85"/>
+        <ellipse cx="110" cy="196" rx="26" ry="10" fill="#FFF3E8" opacity="0.7"/>
+        <circle cx="150" cy="70" r="14" fill="#5A2E18" opacity="0.35"/>`;
+    } else if (p.id === "jupiter" || p.id === "saturno") {
+      const bands = [40, 62, 84, 106, 128, 150, 172];
+      details = bands.map((y, i) => `<rect x="0" y="${y}" width="220" height="18" fill="${i % 2 === 0 ? '#00000018' : '#FFFFFF12'}"/>`).join("");
+      if (p.id === "jupiter") details += `<ellipse cx="150" cy="118" rx="22" ry="13" fill="#D9744A" opacity="0.8"/>`;
+    } else if (p.id === "urano") {
+      details = `<ellipse cx="110" cy="110" rx="90" ry="90" fill="#FFFFFF08"/>
+        <path d="M10 95 Q110 85 210 95" stroke="#FFFFFF" stroke-width="6" fill="none" opacity="0.2"/>`;
+    } else if (p.id === "netuno") {
+      details = `<ellipse cx="140" cy="90" rx="18" ry="14" fill="#0A1440" opacity="0.5"/>
+        <path d="M10 130 Q110 115 210 135" stroke="#8ADBD9" stroke-width="8" fill="none" opacity="0.3"/>
+        <path d="M20 60 Q110 50 200 65" stroke="#B0C8FF" stroke-width="6" fill="none" opacity="0.3"/>`;
+    }
+
+    const ring = p.id === "saturno"
+      ? `<ellipse cx="110" cy="110" rx="150" ry="34" fill="none" stroke="${p.accent}" stroke-width="10" opacity="0.55"/>`
+      : "";
+    const ringFrontClip = p.id === "saturno"
+      ? `<clipPath id="ringFront_${uid}"><rect x="0" y="110" width="220" height="110"/></clipPath>`
+      : "";
+    const ringFront = p.id === "saturno"
+      ? `<g clip-path="url(#ringFront_${uid})"><ellipse cx="110" cy="110" rx="150" ry="34" fill="none" stroke="${p.accent}" stroke-width="10" opacity="0.9"/></g>`
+      : "";
+
+    return `<svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="${uid}" cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stop-color="${p.sun}"/>
+          <stop offset="55%" stop-color="${p.accent}"/>
+          <stop offset="100%" stop-color="${p.skyTop}"/>
+        </radialGradient>
+        <clipPath id="clip_${uid}"><circle cx="110" cy="110" r="90"/></clipPath>
+        ${ringFrontClip}
+      </defs>
+      ${ring}
+      <circle cx="110" cy="110" r="90" fill="url(#${uid})"/>
+      <g clip-path="url(#clip_${uid})">${details}</g>
+      <ellipse cx="80" cy="75" rx="30" ry="18" fill="#FFFFFF" opacity="0.18"/>
+      ${ringFront}
+    </svg>`;
+  }
+
+  /* ============ AUDIO ============ */
+  let audioCtx = null, audioOn = false, ambientNodes = null;
+  function initAudio() {
+    if (audioCtx) { if (audioCtx.state === "suspended") audioCtx.resume(); return; }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx = new Ctx();
+    audioCtx.resume();
+    const master = audioCtx.createGain(); master.gain.value = 0.09; master.connect(audioCtx.destination);
+    const filter = audioCtx.createBiquadFilter(); filter.type = "lowpass"; filter.frequency.value = 500; filter.connect(master);
+    const o1 = audioCtx.createOscillator(); o1.type = "sine"; o1.frequency.value = 90;
+    const o2 = audioCtx.createOscillator(); o2.type = "sine"; o2.frequency.value = 95;
+    o1.connect(filter); o2.connect(filter); o1.start(); o2.start();
+    const lfo = audioCtx.createOscillator(); lfo.frequency.value = 0.07;
+    const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 220;
+    lfo.connect(lfoGain); lfoGain.connect(filter.frequency); lfo.start();
+    ambientNodes = { master, filter, o1, o2, lfo };
+  }
+  function beep(freq, dur, type, gain) {
+    if (!audioCtx) return;
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+    osc.type = type || "sine"; osc.frequency.value = freq;
+    g.gain.value = gain || 0.1; g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.connect(g); g.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + dur);
+  }
+  function playCollect() { if (audioOn) { beep(880, 0.18, "sine", 0.1); setTimeout(() => beep(1320, 0.18, "sine", 0.08), 90); } }
+  function playHit() { if (audioOn) beep(140, 0.35, "sawtooth", 0.09); }
+  function playKill() { if (audioOn) { beep(500, 0.1, "square", 0.1); setTimeout(() => beep(250, 0.18, "square", 0.08), 80); } }
+  function playShoot() { if (audioOn) beep(700, 0.08, "square", 0.09); }
+  function playVictory() {
+    if (!audioOn) return;
+    [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.28, "sine", 0.11), i * 130));
+  }
+  let lastSpokenId = null;
+  function speak(text) {
+    if (!audioOn || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "pt-BR"; u.rate = 0.95; u.pitch = 1.05;
+    window.speechSynthesis.speak(u);
+  }
+
+  /* ============ GAME STATE ============ */
+  let S = null;
+  let rafId = null;
+  const keys = { left: false, right: false };
+
+  function startLevel(index) {
+    const planet = PLANETS[index];
+    const layout = buildLevelLayout(index);
+    S = {
+      planetIndex: index, planet, worldW: layout.worldW,
+      collectibles: layout.collectibles, signs: layout.signs,
+      aliens: layout.aliens.map((a) => ({ ...a })),
+      px: 80, py: GROUND_Y, vy: 0, grounded: true, facingLeft: false,
+      lives: LIVES_START, hitUntil: 0, legPhase: 0,
+      giant: { x: -260, phase: 0, hp: GIANT_HP },
+      dragon: { x: -400, phase: 0, hp: DRAGON_HP, facingLeft: false },
+      meteors: [], projectiles: [],
+      collectedCount: 0, nearSignId: null,
+      done: false, gameOver: false,
+      frame: 0, lastShotTime: 0,
+      giantSpeed: 2.4 + index * 0.06,
+      dragonSpeed: 2.85 + index * 0.06,
+    };
+    lastSpokenId = null;
+    document.getElementById("menu").style.display = "none";
+    document.getElementById("game").style.display = "flex";
+    document.getElementById("titleChip").textContent = `Fase ${planet.num} · ${planet.name}`;
+    document.getElementById("overlay").style.display = "none";
+    document.getElementById("factBubble").style.display = "none";
+    buildStaticLayer();
+    updateHud();
+    announceLevel(planet);
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function buildStaticLayer() {
+    const g = document.getElementById("staticLayer");
+    const p = S.planet;
+    let s = `<rect x="0" y="${GROUND_Y + 18}" width="${S.worldW}" height="${VIEW_H - GROUND_Y - 18 + 400}" fill="${p.ground}"/>`;
+    for (let i = 0; i < Math.round(S.worldW / 75); i++) {
+      const cx = (i * 97 + 40) % S.worldW;
+      const r = 10 + (i % 4) * 5;
+      s += `<ellipse cx="${cx}" cy="${GROUND_Y + 18}" rx="${r}" ry="${r * 0.35}" fill="${p.crater}" opacity="0.6"/>`;
+    }
+    S.signs.forEach((sg) => {
+      s += `<g>
+        <rect x="${sg.x - 4}" y="${GROUND_Y - 26}" width="8" height="30" fill="#8C6F5A"/>
+        <rect x="${sg.x - 18}" y="${GROUND_Y - 50}" width="36" height="26" rx="5" fill="${p.accent}" stroke="#0E1330" stroke-width="2.5"/>
+        <text x="${sg.x}" y="${GROUND_Y - 31}" font-size="18" font-weight="800" fill="#0E1330" text-anchor="middle">!</text>
+      </g>`;
+    });
+    g.innerHTML = s;
+  }
+
+  function fireShot() {
+    const now = Date.now();
+    if (now - S.lastShotTime < SHOOT_COOLDOWN_MS) return;
+    S.lastShotTime = now;
+    const dir = S.facingLeft ? -1 : 1;
+    S.projectiles.push({ id: "p" + now, x: S.px + dir * 22, y: S.py - 40, dir });
+    playShoot();
+  }
+
+  function doJump() {
+    if (S.grounded) { S.vy = JUMP_V; S.grounded = false; }
+  }
+
+  function takeHit() {
+    if (Date.now() < S.hitUntil) return;
+    S.hitUntil = Date.now() + INVULN_MS;
+    playHit();
+    S.lives -= 1;
+    if (S.lives <= 0) { S.gameOver = true; showOverlay(false); }
+    updateHud();
+  }
+
+  function updateHud() {
+    document.getElementById("crystalChip").textContent = `💎 ${S.collectedCount}/${S.collectibles.length}`;
+    document.getElementById("livesChip").textContent = "❤️".repeat(Math.max(S.lives, 0)) + "🖤".repeat(LIVES_START - Math.max(S.lives, 0));
+  }
+
+  function showOverlay(won) {
+    if (won) unlockNext(S.planetIndex);
+    const ov = document.getElementById("overlay");
+    document.getElementById("overlayIcon").textContent = won ? "🚀" : "💥";
+    document.getElementById("overlayTitle").textContent = won ? "Fase completa!" : "Fim de jogo";
+    document.getElementById("overlayText").textContent = won
+      ? `Você coletou todos os cristais e aprendeu sobre ${S.planet.name}!`
+      : `Os perigos de ${S.planet.name} pegaram o Pietrovan. Tenta de novo!`;
+    const primary = document.getElementById("overlayPrimary");
+    primary.textContent = won && S.planetIndex < PLANETS.length - 1 ? "Próximo planeta" : "Jogar de novo";
+    primary.onclick = () => {
+      if (won && S.planetIndex < PLANETS.length - 1) selectPlanet(S.planetIndex + 1);
+      else startLevel(S.planetIndex);
+    };
+    document.getElementById("overlaySecondary").onclick = goToMenu;
+    ov.style.display = "flex";
+  }
+
+  function goToMenu() {
+    if (rafId) cancelAnimationFrame(rafId);
+    document.getElementById("game").style.display = "none";
+    document.getElementById("menu").style.display = "flex";
+    buildMenu();
+  }
+
+  /* ============ MAIN LOOP ============ */
+  function loop() {
+    if (!S || S.done || S.gameOver) return;
+    S.frame++;
+    let moving = false;
+    if (keys.left) { S.px -= SPEED; S.facingLeft = true; moving = true; }
+    if (keys.right) { S.px += SPEED; S.facingLeft = false; moving = true; }
+    S.px = clamp(S.px, 20, S.worldW - 20);
+
+    S.vy += GRAVITY; S.py += S.vy;
+    if (S.py >= GROUND_Y) { S.py = GROUND_Y; S.vy = 0; S.grounded = true; } else { S.grounded = false; }
+    if (moving && S.grounded) S.legPhase += 0.32;
+
+    S.collectibles.forEach((c) => {
+      if (!c.got && Math.abs(S.px - c.x) < 26 && Math.abs(S.py - c.y) < 40) {
+        c.got = true; S.collectedCount++; playCollect(); updateHud();
+      }
+    });
+
+    let near = null;
+    S.signs.forEach((sg) => { if (Math.abs(S.px - sg.x) < 46) near = sg.id; });
+    if (near && near !== S.nearSignId && lastSpokenId !== near) {
+      lastSpokenId = near;
+      const sg = S.signs.find((x) => x.id === near);
+      if (sg) speak(sg.fact);
+    }
+    S.nearSignId = near;
+    const bubble = document.getElementById("factBubble");
+    if (near) {
+      const sg = S.signs.find((x) => x.id === near);
+      bubble.textContent = sg.fact; bubble.style.display = "block";
+    } else bubble.style.display = "none";
+
+    S.aliens.forEach((a) => {
+      let nx = a.x + 1.1 * a.dir; let dir = a.dir;
+      if (nx > a.right) { nx = a.right; dir = -1; } else if (nx < a.left) { nx = a.left; dir = 1; }
+      a.x = nx; a.dir = dir; a.phase += 0.25;
+      if (Math.abs(nx - S.px) < 28 && S.py > GROUND_Y - 26) takeHit();
+    });
+
+    if (S.giant.hp > 0) {
+      const d = S.px - S.giant.x;
+      const step = Math.sign(d) * Math.min(S.giantSpeed, Math.abs(d));
+      S.giant.x += step; S.giant.phase += 0.18;
+      if (Math.abs(S.giant.x - S.px) < 48) takeHit();
+    }
+
+    let dragonY = 95;
+    if (S.dragon.hp > 0) {
+      const d = S.px - S.dragon.x;
+      const step = Math.sign(d) * Math.min(S.dragonSpeed, Math.abs(d));
+      S.dragon.x += step; S.dragon.phase += 0.09; S.dragon.facingLeft = d < 0;
+      dragonY = 95 + Math.sin(S.dragon.phase) * 65;
+      if (Math.abs(S.dragon.x - S.px) < 40 && Math.abs(dragonY - S.py) < 40) takeHit();
+    }
+
+    const camX = clamp(S.px - VIEW_W / 2, 0, Math.max(0, S.worldW - VIEW_W));
+    S.meteors = S.meteors.map((m) => ({ ...m, y: m.y + m.speed })).filter((m) => m.y < GROUND_Y + 30);
+    if (S.frame % 70 === 0) {
+      S.meteors.push({
+        id: "m" + S.frame, x: camX + 20 + Math.random() * (VIEW_W - 40), y: -20,
+        r: 11 + Math.random() * 9, speed: 2.8 + Math.random() * 1.6,
+      });
+    }
+    S.meteors.forEach((m) => {
+      if (Math.abs(m.x - S.px) < m.r + 14 && Math.abs(m.y - S.py) < m.r + 44) takeHit();
+    });
+
+    S.projectiles = S.projectiles.map((p) => ({ ...p, x: p.x + p.dir * PROJECTILE_SPEED })).filter((p) => p.x > -60 && p.x < S.worldW + 60);
+    S.projectiles = S.projectiles.filter((p) => {
+      let consumed = false;
+      S.aliens = S.aliens.filter((a) => {
+        if (!consumed && Math.abs(a.x - p.x) < 22) { consumed = true; return false; }
+        return true;
+      });
+      if (consumed) { playKill(); return false; }
+      if (S.giant.hp > 0 && Math.abs(S.giant.x - p.x) < 55) {
+        S.giant.hp -= 1; S.giant.hp <= 0 ? playKill() : playHit();
+        return false;
+      }
+      if (S.dragon.hp > 0 && Math.abs(S.dragon.x - p.x) < 45 && Math.abs(dragonY - p.y) < 40) {
+        S.dragon.hp -= 1; S.dragon.hp <= 0 ? playKill() : playHit();
+        return false;
+      }
+      return true;
+    });
+
+    if (S.collectedCount >= S.collectibles.length && !S.done) { S.done = true; playVictory(); showOverlay(true); }
+
+    render(camX, dragonY);
+    if (!S.done && !S.gameOver) rafId = requestAnimationFrame(loop);
+  }
+
+  function render(camX, dragonY) {
+    const svg = document.getElementById("gameSvg");
+    svg.setAttribute("viewBox", `${camX} 0 ${VIEW_W} ${VIEW_H}`);
+    const p = S.planet;
+    svg.style.background = `linear-gradient(180deg, ${p.skyTop} 0%, ${p.skyMid} 60%, ${p.skyBot} 100%)`;
+
+    let s = `<circle cx="${camX + 320}" cy="40" r="26" fill="${p.sun}" opacity="0.85"/>`;
+    S.collectibles.forEach((c) => { if (!c.got) s += `<text x="${c.x}" y="${c.y + 8}" font-size="26" text-anchor="middle">💎</text>`; });
+    S.meteors.forEach((m) => { s += meteorSvg(m.x, m.y, m.r, p.crater); });
+    S.aliens.forEach((a) => { s += alienSvg(a.x, a.phase); });
+    if (S.giant.hp > 0) s += giantSvg(S.giant.x, S.giant.phase, S.giant.hp, p.giant, p.id);
+    if (S.dragon.hp > 0) s += dragonSvg(S.dragon.x, dragonY, S.dragon.phase, S.dragon.facingLeft, S.dragon.hp, p.dragon);
+    S.projectiles.forEach((pr) => { s += boltSvg(pr.x, pr.y, pr.dir); });
+    const hit = Date.now() < S.hitUntil;
+    s += playerSvg(S.px, S.py, S.facingLeft, hit, S.legPhase, S.grounded);
+
+    document.getElementById("dynamicLayer").innerHTML = s;
+  }
+
+  /* ============ VIEWPORT / RESIZE ============ */
+  function updateViewport() {
+    const wrap = document.getElementById("gameCanvasWrap");
+    const rect = wrap.getBoundingClientRect();
+    const aspect = rect.width / rect.height;
+    VIEW_W = Math.round(VIEW_H * (aspect || 1.4));
+  }
+  window.addEventListener("resize", updateViewport);
+  window.addEventListener("orientationchange", () => setTimeout(updateViewport, 200));
+
+  /* ============ MENU BUILD ============ */
+  function buildMenu() {
+    const grid = document.getElementById("planetGrid");
+    grid.innerHTML = "";
+    const unlocked = getUnlockedCount();
+    PLANETS.forEach((p, i) => {
+      const isLocked = i >= unlocked;
+      const btn = document.createElement("button");
+      btn.className = "planetCard" + (isLocked ? " locked" : "");
+      btn.style.background = `linear-gradient(160deg, ${p.skyMid}, ${p.skyTop})`;
+      btn.innerHTML = isLocked
+        ? `<span class="num">${p.num}</span><span class="lock">🔒</span><span>${p.name}</span>`
+        : `<span class="num">${p.num}</span>${i < unlocked - 1 ? '<span class="done">✅</span>' : ""}<span class="dot" style="background:${p.accent}"></span><span>${p.name}</span>`;
+      btn.onclick = () => { if (!isLocked) selectPlanet(i); };
+      grid.appendChild(btn);
+    });
+  }
+
+  /* ============ CONTROLS WIRING ============ */
+  function bindHold(el, onDown, onUp) {
+    el.addEventListener("pointerdown", (e) => { e.preventDefault(); onDown(); });
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointerleave", onUp);
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+  bindHold(document.getElementById("btnLeft"), () => (keys.left = true), () => (keys.left = false));
+  bindHold(document.getElementById("btnRight"), () => (keys.right = true), () => (keys.right = false));
+  document.getElementById("btnJump").addEventListener("pointerdown", (e) => { e.preventDefault(); doJump(); });
+  document.getElementById("btnShoot").addEventListener("pointerdown", (e) => { e.preventDefault(); fireShot(); });
+
+  window.addEventListener("keydown", (e) => {
+    if (!S) return;
+    if (["ArrowLeft", "a", "A"].includes(e.key)) keys.left = true;
+    if (["ArrowRight", "d", "D"].includes(e.key)) keys.right = true;
+    if ([" ", "ArrowUp", "w", "W"].includes(e.key)) doJump();
+    if (["x", "X", "Enter"].includes(e.key)) fireShot();
+  });
+  window.addEventListener("keyup", (e) => {
+    if (["ArrowLeft", "a", "A"].includes(e.key)) keys.left = false;
+    if (["ArrowRight", "d", "D"].includes(e.key)) keys.right = false;
+  });
+
+  document.getElementById("menuBtn").onclick = goToMenu;
+  document.getElementById("audioBtn").onclick = () => {
+    if (!audioOn) { initAudio(); speak("Vamos explorar!"); }
+    audioOn = !audioOn;
+    document.getElementById("audioBtn").textContent = audioOn ? "🔊" : "🔇";
+  };
+  document.getElementById("fsBtn").onclick = () => {
+    const el = document.documentElement;
+    if (!document.fullscreenElement) {
+      (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen || function () {}).call(el);
+    } else {
+      (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+    }
+  };
+
+  /* ============ INIT ============ */
+  buildMenu();
+  updateViewport();
+})();
+</script>
+</body>
+</html>
