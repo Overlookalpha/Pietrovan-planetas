@@ -4,6 +4,18 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Pietrovan e os Planetas</title>
+
+ <meta name="theme-color" content="#0E1330">
+
+<link rel="manifest" href="./manifest.json">
+
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pietrovan">
+
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+ 
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Nunito:wght@400;700;800&display=swap" />
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -89,13 +101,24 @@
   .primaryBtn { background: linear-gradient(90deg, #FFB648, #FF6FA5); color: #0E1330; }
   .secondaryBtn { background: rgba(255,255,255,0.12); color: #F5F3FF; }
 
-  #controls {
-    position: relative; height: 128px; flex-shrink: 0;
-    display: flex; align-items: flex-end; justify-content: space-between;
-    padding: 0 16px calc(14px + env(safe-area-inset-bottom)) 16px;
-    gap: 10px;
-  }
+  <meta name="theme-color" content="#0E1330">
+
+<link rel="manifest" href="./manifest.json">
+
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pietrovan">
+
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+ 
   .ctrlGroup { display: flex; align-items: flex-end; gap: 12px; }
+ .movementControls {
+  gap: 26px;
+}
+ .actionControls {
+  gap: 22px;
+}
   .ctrlBtn {
     position: relative; border: none; background: rgba(23,27,61,0.85); color: #F5F3FF;
     display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none;
@@ -154,14 +177,42 @@
     </div>
 
     <div id="controls">
-      <div class="ctrlGroup">
-        <button class="ctrlBtn" id="btnLeft" style="width:66px; height:66px; font-size:26px;">◀</button>
-        <button class="ctrlBtn" id="btnRight" style="width:66px; height:66px; font-size:26px;">▶</button>
-      </div>
-      <div class="ctrlGroup">
-        <button class="ctrlBtn shootBtn" id="btnShoot" style="width:66px; height:66px; font-size:24px;">🔫</button>
-        <button class="ctrlBtn jumpBtn" id="btnJump" style="width:84px; height:84px; font-size:14px;">PULAR</button>
-      </div>
+     <div class="ctrlGroup movementControls">
+  <button
+    class="ctrlBtn"
+    id="btnLeft"
+    style="width:86px; height:86px; font-size:32px;"
+  >
+    ◀️
+  </button>
+
+  <button
+    class="ctrlBtn"
+    id="btnRight"
+    style="width:86px; height:86px; font-size:32px;"
+  >
+    ▶️
+  </button>
+</div>
+     <div class="ctrlGroup actionControls">
+
+  <button
+    class="ctrlBtn shootBtn"
+    id="btnShoot"
+    style="width:86px; height:86px; font-size:30px;"
+  >
+    🔫
+  </button>
+
+  <button
+    class="ctrlBtn jumpBtn"
+    id="btnJump"
+    style="width:108px; height:108px; font-size:17px;"
+  >
+    PULAR
+  </button>
+
+</div>
     </div>
   </div>
 
